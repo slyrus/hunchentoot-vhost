@@ -131,3 +131,45 @@ defined with DEFINE-EASY-VIRTUAL-HANDLER, if there is one."
                       (string= (hunchentoot::script-name request) uri))
                      (t (funcall uri request))))
      do (return easy-handler)))
+
+(defun create-virtual-host-prefix-dispatcher (vhost prefix page-function)
+  "Creates a dispatch function which will dispatch to the
+function denoted by PAGE-FUNCTION if the file name of the current
+request starts with the string PREFIX."
+  (lambda (request)
+    (when (virtual-host-handles vhost (host-name request))
+      (let ((mismatch (mismatch (hunchentoot::script-name request) prefix
+                                :test #'char=)))
+        (and (or (null mismatch)
+                 (>= mismatch (length prefix)))
+             page-function)))))
+
+(defun create-virtual-host-folder-dispatcher-and-handler (vhost uri-prefix base-path &optional content-type)
+  "Creates and returns a dispatch function which will dispatch to a
+handler function which emits the file relative to BASE-PATH that is
+denoted by the URI of the request relative to URI-PREFIX.  URI-PREFIX
+must be a string ending with a slash, BASE-PATH must be a pathname
+designator for an existing directory.  If CONTENT-TYPE is not NIL,
+it'll be the content type used for all files in the folder."
+  (unless (and (stringp uri-prefix)
+               (plusp (length uri-prefix))
+               (char= (char uri-prefix (1- (length uri-prefix))) #\/))
+    (error "~S must be string ending with a slash." uri-prefix))
+  (when (or (pathname-name base-path)
+            (pathname-type base-path))
+    (error "~S is supposed to denote a directory." base-path))
+  (flet ((handler ()
+           (let* ((script-name (hunchentoot::url-decode (hunchentoot::script-name)))
+                  (script-path (enough-namestring (ppcre::regex-replace-all "\\\\" script-name "/")
+                                                  uri-prefix))
+                  (script-path-directory (pathname-directory script-path)))
+             (unless (or (stringp script-path-directory)
+                         (null script-path-directory)
+                         (and (listp script-path-directory)
+                              (eq (first script-path-directory) :relative)
+                              (loop for component in (rest script-path-directory)
+                                    always (stringp component))))
+               (setf (hunchentoot::return-code) hunchentoot::+http-forbidden+)
+               (throw 'handler-done nil))
+             (hunchentoot::handle-static-file (merge-pathnames script-path base-path) content-type))))
+    (create-virtual-host-prefix-dispatcher vhost uri-prefix #'handler)))
