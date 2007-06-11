@@ -1,0 +1,7 @@
+
+hunchentoot-vhost
+
+This package is for implementing so-called virtual hosts in a
+mechanism similar to that of hunchentoot's easy-handlers.
+
+
