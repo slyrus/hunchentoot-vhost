@@ -1,7 +1,12 @@
-cl-pdf-lm
+hunchentoot-vhost
 
 Copyright (c) 2007 Cyrus Harmon
 All rights reserved.
+
+Portions of the code are slightly modified versions of functions
+from Hunchentoot, which are:
+
+Copyright (c) 2004-2007, Dr. Edmund Weitz.  All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions
@@ -26,10 +31,4 @@ INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
 WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
 NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-
-The Latin Modern fonts contained in this package are licensed under
-the terms of the GUST font license which can be found here:
-
-http://www.gust.org.pl/projects/fonts/licenses/GUST-FONT-SOURCE-LICENSE.txt
 

@@ -3,6 +3,9 @@
 ;;; Copyright (c) 2007 Cyrus Harmon (ch-lisp@bobobeach.com)
 ;;; All rights reserved.
 ;;;
+;;; This file contains code that is a derivative of work that is:
+;;; Copyright (c) 2004-2007, Dr. Edmund Weitz.  All rights reserved.
+;;;
 ;;; Redistribution and use in source and binary forms, with or without
 ;;; modification, are permitted provided that the following conditions
 ;;; are met:
@@ -39,11 +42,16 @@
                       :documentation "A list of the hostnames which
   for which this virtual host handles the requests if a suffix of the
   host of the request matches one of the names in this list.")
-   (dispatcher :accessor dispatcher
-               :initarg :dispatcher
-               :initform nil
+   (dispatch-table :accessor dispatch-table
+               :initarg :dispatch-table
+               :initform (list #'dispatch-easy-virtual-handlers)
                :documentation "A list of dispatch functions to be
-  called for this virtual host."))
+  called for this virtual host.")
+   (easy-handler-alist :accessor easy-handler-alist
+               :initarg :easy-handler-alist
+               :initform nil
+               :documentation "A list of virtual-easy-handler
+  functions to be called for this virtual host."))
   (:documentation "An object of this class contains information about
   a virtual host to be handled by the hunchentoot-vhost machinery."))
 
@@ -69,10 +77,11 @@ specified host if it is an string rather than a list of strings."
         (delete-if (lambda (vhost)
                     (equal (name vhost) name))
                    *virtual-host-dispatch-list*))
-  (car (push (make-instance 'virtual-host
-                            :name name
-                            :handled-host-list hosts)
-             *virtual-host-dispatch-list*)))
+  (let ((vhost (make-instance 'virtual-host
+                              :name name
+                              :handled-host-list hosts)))
+    (push vhost *virtual-host-dispatch-list*)
+    vhost))
 
 (defun virtual-host-handles (vhost host-name)
   "Returns the name of the host handled by this virtual host whose
@@ -92,8 +101,20 @@ to the hunchentoot:*dispatch-table*."
             do (when (virtual-host-handles vhost (host-name request))
                  (return vhost)))))
     (when vhost
-      (print vhost)
-      (dispatch-easy-virtual-handlers request vhost))))
+      (loop for dispatch-fn in (dispatch-table vhost)
+         for action = (funcall dispatch-fn request vhost)
+         when action return action))))
+
+(defun dispatch-easy-virtual-handlers (request vhost)
+  "This is a dispatcher which returns the appropriate handler
+defined with DEFINE-EASY-VIRTUAL-HANDLER, if there is one."
+  (loop for (uri server-names easy-handler) in (easy-handler-alist vhost)
+     when (and (or (eq server-names t)
+                   (find (hunchentoot::server-name hunchentoot::*server*) server-names :test #'eq))
+               (cond ((stringp uri)
+                      (string= (hunchentoot::script-name request) uri))
+                     (t (funcall uri request))))
+     do (return easy-handler)))
 
 (defmacro define-easy-virtual-handler (virtual-host description lambda-list &body body)
   "Defines an easy-virtual-handler for use with a given
@@ -108,12 +129,12 @@ the description and lambda-list arguments."
                (list
                 (hunchentoot::with-rebinding (uri)
                   `(progn
-                     (setf (dispatcher ,virtual-host)
+                     (setf (easy-handler-alist ,virtual-host)
                            (delete-if (lambda (list)
                                         (or (equal ,uri (first list))
                                             (eq ',name (third list))))
-                                      (dispatcher ,virtual-host)))
-                     (push (list ,uri ,server-names ',name) (dispatcher ,virtual-host))))))
+                                      (easy-handler-alist ,virtual-host)))
+                     (push (list ,uri ,server-names ',name) (easy-handler-alist ,virtual-host))))))
        (defun ,name (&key ,@(loop for part in lambda-list
                                collect
                                  (hunchentoot::make-defun-parameter part
@@ -121,22 +142,11 @@ the description and lambda-list arguments."
                                                                     default-request-type)))
          ,@body))))
 
-(defun dispatch-easy-virtual-handlers (request vhost)
-  "This is a dispatcher which returns the appropriate handler
-defined with DEFINE-EASY-VIRTUAL-HANDLER, if there is one."
-  (loop for (uri server-names easy-handler) in (dispatcher vhost)
-     when (and (or (eq server-names t)
-                   (find (hunchentoot::server-name hunchentoot::*server*) server-names :test #'eq))
-               (cond ((stringp uri)
-                      (string= (hunchentoot::script-name request) uri))
-                     (t (funcall uri request))))
-     do (return easy-handler)))
-
-(defun create-virtual-host-prefix-dispatcher (vhost prefix page-function)
+(defun create-virtual-host-prefix-dispatcher (prefix page-function)
   "Creates a dispatch function which will dispatch to the
 function denoted by PAGE-FUNCTION if the file name of the current
 request starts with the string PREFIX."
-  (lambda (request)
+  (lambda (request vhost)
     (when (virtual-host-handles vhost (host-name request))
       (let ((mismatch (mismatch (hunchentoot::script-name request) prefix
                                 :test #'char=)))
@@ -144,7 +154,7 @@ request starts with the string PREFIX."
                  (>= mismatch (length prefix)))
              page-function)))))
 
-(defun create-virtual-host-folder-dispatcher-and-handler (vhost uri-prefix base-path &optional content-type)
+(defun create-virtual-host-folder-dispatcher-and-handler (uri-prefix base-path &optional content-type)
   "Creates and returns a dispatch function which will dispatch to a
 handler function which emits the file relative to BASE-PATH that is
 denoted by the URI of the request relative to URI-PREFIX.  URI-PREFIX
@@ -172,4 +182,4 @@ it'll be the content type used for all files in the folder."
                (setf (hunchentoot::return-code) hunchentoot::+http-forbidden+)
                (throw 'handler-done nil))
              (hunchentoot::handle-static-file (merge-pathnames script-path base-path) content-type))))
-    (create-virtual-host-prefix-dispatcher vhost uri-prefix #'handler)))
+    (create-virtual-host-prefix-dispatcher uri-prefix #'handler)))
