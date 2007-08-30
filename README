@@ -1,7 +1,38 @@
 
 hunchentoot-vhost
+Copyright (c) 2007 Cyrus Harmon
+See LICENSE file for details
 
 This package is for implementing so-called virtual hosts in a
 mechanism similar to that of hunchentoot's easy-handlers.
 
+
+Arghh... what a mess. I'm getting lost in a maze of metaness. Perhaps
+some documentation about what I'm trying to do will help me straighten
+things out.
+
+The general idea is that I would like to create a "virtual host"
+mechanism such that a single server (which listens on a single port,
+as is the Hunchentoot design) can serve different content depending on
+the host name used in the http request so that, for example,
+http://host1.bogus.com/ and http://host2.bogus.com/ could serve up
+different pages.
+
+
+Virtual hosts - It is desirable that a single virtual host can handle
+multiple host names such that, for instance, http://www.bogus.com/ and
+http://bogus.com can point to the same page.
+
+Servers - Hunchentoot servers listen on a single port and field
+requests. One can either use the default hunchentoot server or extend
+the hunchentoot server class with a specialized virtual-host-server.
+
+Mapping between virtual hosts and servers - It is desirable to be able
+to run individual virtual hosts on multiple hosts. How do we go about
+doing this?
+
+Applications - The reason behind doing all of this is so that one can
+set up multiple applications on a single set of servers. How do we
+manage these applications? How do the applications get information
+about which (virtual) host they are running on?
 

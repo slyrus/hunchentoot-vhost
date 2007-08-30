@@ -32,7 +32,9 @@
 
 (defpackage #:hunchentoot-vhost
   (:use #:cl)
-  (:export #:make-virtual-host
+  (:export #:virtual-host
+
+           #:make-virtual-host
            #:define-easy-virtual-handler
            #:dispatch-virtual-host-handlers))
 

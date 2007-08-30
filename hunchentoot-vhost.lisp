@@ -51,12 +51,15 @@
                :initarg :easy-handler-alist
                :initform nil
                :documentation "A list of virtual-easy-handler
-  functions to be called for this virtual host."))
+  functions to be called for this virtual host.")
+   (server :accessor server
+               :initarg :server
+               :initform nil
+               :documentation "The hunchentoot::server for which this
+               virtual-host should be used. If nil, use this virtual
+               host for all servers."))
   (:documentation "An object of this class contains information about
   a virtual host to be handled by the hunchentoot-vhost machinery."))
-
-(defvar *virtual-host-dispatch-list* nil "A list of virtual-host instances to
-be handled by dispatch-virtual-host-handlers")
 
 (defun host-name (request)
   "Returns just the host portion of the 'Host' incoming http header
@@ -67,20 +70,38 @@ value, rather than either host or host:port if the port is specified."
           (subseq host-and-port 0 colon-pos)
           host-and-port))))
 
-(defun make-virtual-host (name hosts)
+(defvar *server-vhost-list-hash-table* (make-hash-table))
+
+(setf hunchentoot:*meta-dispatcher*
+      (lambda (server)
+        (let ((hash (gethash server *server-vhost-list-hash-table*)))
+          (if hash
+              (progn
+                (print (cons 'moose server))
+                (cons #'dispatch-virtual-host-handlers
+                      hunchentoot:*dispatch-table*))
+              hunchentoot:*dispatch-table*))))
+
+(defun make-virtual-host (name
+                          hosts
+                          &key
+                          server
+                          (class 'virtual-host))
   "Creates a virtual host of the specified name that handles requests
 whose host suffixes match one of the specified hosts, are the single
 specified host if it is an string rather than a list of strings."
   (when (atom hosts)
     (setf hosts (list hosts)))
-  (setf *virtual-host-dispatch-list*
-        (delete-if (lambda (vhost)
-                    (equal (name vhost) name))
-                   *virtual-host-dispatch-list*))
-  (let ((vhost (make-instance 'virtual-host
+  
+  (setf (gethash server *server-vhost-list-hash-table*)
+        (delete name (gethash server *server-vhost-list-hash-table*)
+                :key #'name
+                :test #'equal))
+  (let ((vhost (make-instance class
                               :name name
-                              :handled-host-list hosts)))
-    (push vhost *virtual-host-dispatch-list*)
+                              :handled-host-list hosts
+                              :server server)))
+    (push vhost (gethash server *server-vhost-list-hash-table*))
     vhost))
 
 (defun virtual-host-handles (vhost host-name)
@@ -97,12 +118,13 @@ suffix is host-name if it exists, otherwise returns NIL."
   "The dispatch function for the vhost handlers. This should be added
 to the hunchentoot:*dispatch-table*."
   (let ((vhost
-         (loop for vhost in *virtual-host-dispatch-list*
+         (loop for vhost in (gethash hunchentoot::*server* *server-vhost-list-hash-table*)
             do (when (virtual-host-handles vhost (host-name request))
                  (return vhost)))))
     (when vhost
       (loop for dispatch-fn in (dispatch-table vhost)
          for action = (funcall dispatch-fn request vhost)
+         do (print action)
          when action return action))))
 
 (defun dispatch-easy-virtual-handlers (request vhost)
