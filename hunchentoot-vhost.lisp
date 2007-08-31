@@ -82,26 +82,27 @@ value, rather than either host or host:port if the port is specified."
                       hunchentoot:*dispatch-table*))
               hunchentoot:*dispatch-table*))))
 
+(defun add-virtual-host (vhost server)
+  (setf (gethash server *server-vhost-list-hash-table*)
+        (delete (name vhost) (gethash server *server-vhost-list-hash-table*)
+                :key #'name
+                :test #'equal))
+  (push vhost (gethash server *server-vhost-list-hash-table*)))
+
 (defun make-virtual-host (name
                           hosts
                           &key
-                          server
-                          (class 'virtual-host))
+                          server)
   "Creates a virtual host of the specified name that handles requests
 whose host suffixes match one of the specified hosts, are the single
 specified host if it is an string rather than a list of strings."
   (when (atom hosts)
     (setf hosts (list hosts)))
-  
-  (setf (gethash server *server-vhost-list-hash-table*)
-        (delete name (gethash server *server-vhost-list-hash-table*)
-                :key #'name
-                :test #'equal))
-  (let ((vhost (make-instance class
+  (let ((vhost (make-instance 'virtual-host
                               :name name
                               :handled-host-list hosts
                               :server server)))
-    (push vhost (gethash server *server-vhost-list-hash-table*))
+    (when server (add-virtual-host vhost server))
     vhost))
 
 (defun virtual-host-handles (vhost host-name)
@@ -115,8 +116,7 @@ suffix is host-name if it exists, otherwise returns NIL."
            (handled-host-list vhost)))
 
 (defun dispatch-virtual-host-handlers (request)
-  "The dispatch function for the vhost handlers. This should be added
-to the hunchentoot:*dispatch-table*."
+  "The dispatch function for the vhost handlers."
   (let ((vhost
          (loop for vhost in (gethash hunchentoot::*server* *server-vhost-list-hash-table*)
             do (when (virtual-host-handles vhost (host-name request))

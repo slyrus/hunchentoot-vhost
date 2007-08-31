@@ -35,6 +35,8 @@
   (:export #:virtual-host
 
            #:make-virtual-host
+           #:add-virtual-host
+
            #:define-easy-virtual-handler
            #:dispatch-virtual-host-handlers))
 
