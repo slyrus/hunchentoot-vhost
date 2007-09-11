@@ -77,7 +77,6 @@ value, rather than either host or host:port if the port is specified."
         (let ((hash (gethash server *server-vhost-list-hash-table*)))
           (if hash
               (progn
-                (print (cons 'moose server))
                 (cons #'dispatch-virtual-host-handlers
                       hunchentoot:*dispatch-table*))
               hunchentoot:*dispatch-table*))))
@@ -124,7 +123,6 @@ suffix is host-name if it exists, otherwise returns NIL."
     (when vhost
       (loop for dispatch-fn in (dispatch-table vhost)
          for action = (funcall dispatch-fn request vhost)
-         do (print action)
          when action return action))))
 
 (defun dispatch-easy-virtual-handlers (request vhost)
