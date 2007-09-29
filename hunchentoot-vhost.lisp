@@ -117,7 +117,8 @@ suffix is host-name if it exists, otherwise returns NIL."
 (defun dispatch-virtual-host-handlers (request)
   "The dispatch function for the vhost handlers."
   (let ((vhost
-         (loop for vhost in (gethash hunchentoot::*server* *server-vhost-list-hash-table*)
+         (loop for vhost in (gethash hunchentoot::*server*
+                                     *server-vhost-list-hash-table*)
             do (when (virtual-host-handles vhost (host-name request))
                  (return vhost)))))
     (when vhost
