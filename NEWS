@@ -1,0 +1,17 @@
+
+Sat Oct  6 13:05:41 2007
+
+Changed the way virtual host dispatch happens such that functions are
+no longer called with (request vhost) args, but rather just (request),
+as is done with standard hunchentoot dispatch functions. However, some
+of the dispatchers (perhaps incorrectly? look at the easy handlers
+here!) want access to the vhost argument, so we squirrel it away in a
+special variable, *virtual-host* that will be properly set in the
+dynamic contour of the given request.
+
+The upshot of this is that the
+create-virtual-host-folder-dispatcher-and-handler goes away and can
+just use the standard hunchentoot create-folder-dispatcher-and-handler
+function and this will be associated with just the virtual-host by
+placing the dispatcher in the hunchentoot-vhost::dispatch-table of the
+vhost instead of the global (or per-server) dispatch-table.

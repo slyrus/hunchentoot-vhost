@@ -135,10 +135,10 @@ suffix is host-name if it exists, otherwise returns NIL."
                         (funcall dispatch-fn request))
          when action return action))))
 
-(defun dispatch-easy-virtual-handlers (request vhost)
+(defun dispatch-easy-virtual-handlers (request)
   "This is a dispatcher which returns the appropriate handler
 defined with DEFINE-EASY-VIRTUAL-HANDLER, if there is one."
-  (loop for (uri server-names easy-handler) in (easy-handler-alist vhost)
+  (loop for (uri server-names easy-handler) in (easy-handler-alist *virtual-host*)
      when (and (or (eq server-names t)
                    (find (hunchentoot::server-name hunchentoot::*server*) server-names :test #'eq))
                (cond ((stringp uri)
