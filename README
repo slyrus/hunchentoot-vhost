@@ -6,33 +6,56 @@ See LICENSE file for details
 This package is for implementing so-called virtual hosts in a
 mechanism similar to that of hunchentoot's easy-handlers.
 
+Hunchentoot-vhost provides a "virtual host" mechanism such that a
+single server (which listens on a single port, as is the Hunchentoot
+design) can serve different content depending on the host name used in
+the http request so that, for example, http://host1.bogus.com/ and
+http://host2.bogus.com/ could serve up different pages.
 
-Arghh... what a mess. I'm getting lost in a maze of metaness. Perhaps
-some documentation about what I'm trying to do will help me straighten
-things out.
+Features:
 
-The general idea is that I would like to create a "virtual host"
-mechanism such that a single server (which listens on a single port,
-as is the Hunchentoot design) can serve different content depending on
-the host name used in the http request so that, for example,
-http://host1.bogus.com/ and http://host2.bogus.com/ could serve up
-different pages.
+* Multiple names for a given host -- A single virtual host can handle
+  multiple host names such that, for instance, http://www.bogus.com/
+  and http://bogus.com can point to the same page.
+
+* Shared across multiple hunchentoot servers -- While a single
+  hucnhentoot server listens on a single port, one often runs multiple
+  servers in a single process, especially for the common case of a
+  server listening for HTTP requests on one port and HTTPS requests on
+  another port. hunchentoot-vhost virtual hosts can be shared across
+  multiple servers (within a single lisp process, of course)
+
+To create a virtual host, ues the make-virtual-host function:
 
 
-Virtual hosts - It is desirable that a single virtual host can handle
-multiple host names such that, for instance, http://www.bogus.com/ and
-http://bogus.com can point to the same page.
+  (defparameter *localhost-host*
+    (hunchentoot-vhost:make-virtual-host "localhost"
+                                         '("localhost"
+                                           "127.0.0.1")
 
-Servers - Hunchentoot servers listen on a single port and field
-requests. One can either use the default hunchentoot server or extend
-the hunchentoot server class with a specialized virtual-host-server.
 
-Mapping between virtual hosts and servers - It is desirable to be able
-to run individual virtual hosts on multiple hosts. How do we go about
-doing this?
+This creates the *localhost-host* virtual host, which can listen for
+hunchentoot requests with host "localhost" or 127.0.0.1.
 
-Applications - The reason behind doing all of this is so that one can
-set up multiple applications on a single set of servers. How do we
-manage these applications? How do the applications get information
-about which (virtual) host they are running on?
+In order to tell the hunchentoot:server that it should listen for
+requests to this virtual host, one calls the
+hunchentoot-vhost::add-virtual-host funciton:
+
+
+  (hunchentoot-vhost::add-virtual-host *localhost-host* server)
+
+
+In order for the hunchentoot-vhost to field requests, one adds
+functions to the hunchentoot-vhost::dispatch-table of the virtual-host
+object. For instance:
+
+  
+  (pushnew (lambda (request &optional vhost)
+             (declare (ignore vhost))
+             (really-dispatch-this-request request))
+           (hunchentoot-vhost::dispatch-table host) :test #'equal)
+
+  
+which would call really-dispatch-this-request in response to a request
+to this virtual host.
 
