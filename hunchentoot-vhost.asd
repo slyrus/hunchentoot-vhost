@@ -42,5 +42,6 @@
   ((:static-file "version" :pathname #p"version.lisp-expr")
    (:static-file "README")
    (:static-file "LICENSE")
+   (:static-file "NEWS")
    (:cl-source-file "defpackage")
    (:cl-source-file "hunchentoot-vhost" :depends-on ("defpackage"))))
