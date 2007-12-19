@@ -154,21 +154,21 @@ the description and lambda-list arguments."
                        (default-parameter-type ''string)
                        (default-request-type :both))
       description
-    `(progn
-       ,@(when uri
-               (list
-                (hunchentoot::with-rebinding (uri)
-                  `(progn
-                     (setf (easy-handler-alist ,virtual-host)
-                           (delete-if (lambda (list)
-                                        (or (equal ,uri (first list))
-                                            (eq ',name (third list))))
-                                      (easy-handler-alist ,virtual-host)))
-                     (push (list ,uri ,server-names ',name) (easy-handler-alist ,virtual-host))))))
-       (defun ,name (&key ,@(loop for part in lambda-list
-                               collect
-                                 (hunchentoot::make-defun-parameter part
-                                                                    default-parameter-type
-                                                                    default-request-type)))
-         ,@body))))
+    (declare (ignore name))
+    (hunchentoot::with-unique-names (fn)
+      `(let ((,fn (lambda (&key ,@(loop for part in lambda-list
+                                    collect
+                                    (hunchentoot::make-defun-parameter part
+                                                                       default-parameter-type
+                                                                       default-request-type)))
+                   ,@body)))
+         ,@(when uri
+                 (list
+                  (hunchentoot::with-rebinding (uri)
+                    `(progn
+                       (setf (easy-handler-alist ,virtual-host)
+                             (delete-if (lambda (list)
+                                          (equal ,uri (first list)))
+                                        (easy-handler-alist ,virtual-host)))
+                       (push (list ,uri ,server-names ,fn) (easy-handler-alist ,virtual-host))))))))))
 
