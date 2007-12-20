@@ -70,6 +70,17 @@ value, rather than either host or host:port if the port is specified."
           (subseq host-and-port 0 colon-pos)
           host-and-port))))
 
+(defun host-name-and-port (request)
+  "Returns just the multiple values host and port (or nil if no port
+  is specified) of the 'Host' incoming http header value, rather than
+  either host or host:port if the port is specified."
+  (let ((host-and-port (hunchentoot:host request)))
+    (let ((colon-pos (position #\: host-and-port)))
+      (if colon-pos
+          (values (subseq host-and-port 0 colon-pos)
+                  (subseq host-and-port colon-pos))
+          host-and-port))))
+
 (defvar *server-vhost-list-hash-table* (make-hash-table)
   "A hash-table that stores whose keys are hunchentoot:server objects
   and whose values are a list of virtual hosts associated with the
@@ -110,15 +121,25 @@ specified host if it is an string rather than a list of strings."
     (when server (add-virtual-host vhost server))
     vhost))
 
-(defun virtual-host-handles (vhost host-name)
+(defun virtual-host-handles (vhost request)
   "Returns the name of the host handled by this virtual host whose
 suffix is host-name if it exists, otherwise returns NIL."
-  (find-if (lambda (x)
-             (let ((pos (search x host-name)))
-               (when pos
-                 (= pos (- (length host-name)
-                           (length x))))))
-           (handled-host-list vhost)))
+  (destructuring-bind (host-name host-port)
+      (host-name-and-port request)
+    (declare (ignore host-port))
+    (find-if (lambda (candidate-host)
+               ;; check to see if the candidate-host is an atom, if so
+               ;; it's the name of the virtual host and we should handle
+               ;; requests for this host on any port.
+               ;;
+               ;; TODO: we could add support for supporting
+               ;; '(host [port|(list of ports)]) style host designators.
+               (cond ((atom candidate-host)
+                      (let ((pos (search candidate-host host-name)))
+                        (when pos
+                          (= pos (- (length host-name)
+                                    (length candidate-host))))))))
+             (handled-host-list vhost))))
 
 (defparameter *virtual-host* nil)
 
@@ -127,7 +148,7 @@ suffix is host-name if it exists, otherwise returns NIL."
   (let ((vhost
          (loop for vhost in (gethash hunchentoot::*server*
                                      *server-vhost-list-hash-table*)
-            do (when (virtual-host-handles vhost (host-name request))
+            do (when (virtual-host-handles vhost request)
                  (return vhost)))))
     (when vhost
       (loop for dispatch-fn in (dispatch-table vhost)
