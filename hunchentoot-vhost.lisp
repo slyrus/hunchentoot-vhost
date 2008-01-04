@@ -124,7 +124,8 @@ specified host if it is an string rather than a list of strings."
 (defun virtual-host-handles (vhost request)
   "Returns the name of the host handled by this virtual host whose
 suffix is host-name if it exists, otherwise returns NIL."
-  (destructuring-bind (host-name host-port)
+  (declare (optimize (debug 3)))
+  (multiple-value-bind (host-name host-port)
       (host-name-and-port request)
     (declare (ignore host-port))
     (find-if (lambda (candidate-host)
