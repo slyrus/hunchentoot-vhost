@@ -61,24 +61,26 @@
   (:documentation "An object of this class contains information about
   a virtual host to be handled by the hunchentoot-vhost machinery."))
 
-(defun host-name (request)
+(defun host-name (&optional request)
   "Returns just the host portion of the 'Host' incoming http header
 value, rather than either host or host:port if the port is specified."
-  (let ((host-and-port (hunchentoot:host request)))
+  (let ((host-and-port (apply #'hunchentoot:host 
+                              (when request (list request)))))
     (let ((colon-pos (position #\: host-and-port)))
       (if colon-pos
           (subseq host-and-port 0 colon-pos)
           host-and-port))))
 
-(defun host-name-and-port (request)
-  "Returns just the multiple values host and port (or nil if no port
+(defun host-name-and-port (&optional request)
+  "Returns the multiple values host and port (or nil if no port
   is specified) of the 'Host' incoming http header value, rather than
   either host or host:port if the port is specified."
-  (let ((host-and-port (hunchentoot:host request)))
+  (let ((host-and-port (apply #'hunchentoot:host 
+                              (when request (list request)))))
     (let ((colon-pos (position #\: host-and-port)))
       (if colon-pos
           (values (subseq host-and-port 0 colon-pos)
-                  (subseq host-and-port colon-pos))
+                  (subseq host-and-port (1+ colon-pos)))
           host-and-port))))
 
 (defvar *server-vhost-list-hash-table* (make-hash-table)
