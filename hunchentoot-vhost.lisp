@@ -91,16 +91,8 @@ value, rather than either host or host:port if the port is specified."
   &key :server argument to make-virtual-host or calls add-virtual-host
   to add the hunchentoot-vhost to the given server.")
 
-(setf hunchentoot:*meta-dispatcher*
-      (lambda (server)
-        (let ((hash (gethash server *server-vhost-list-hash-table*)))
-          (if hash
-              (progn
-                (cons #'dispatch-virtual-host-handlers
-                      hunchentoot:*dispatch-table*))
-              hunchentoot:*dispatch-table*))))
-
 (defun add-virtual-host (vhost server)
+  (pushnew #'dispatch-virtual-host-handlers hunchentoot::*dispatch-table*)
   (setf (gethash server *server-vhost-list-hash-table*)
         (delete (name vhost) (gethash server *server-vhost-list-hash-table*)
                 :key #'name
@@ -123,35 +115,41 @@ specified host if it is an string rather than a list of strings."
     (when server (add-virtual-host vhost server))
     vhost))
 
-(defun virtual-host-handles (vhost request)
+(defun virtual-host-handles (vhost request &key exact)
   "Returns the name of the host handled by this virtual host whose
 suffix is host-name if it exists, otherwise returns NIL."
   (multiple-value-bind (host-name host-port)
       (host-name-and-port request)
     (declare (ignore host-port))
-    (find-if (lambda (candidate-host)
-               ;; check to see if the candidate-host is an atom, if so
-               ;; it's the name of the virtual host and we should handle
-               ;; requests for this host on any port.
-               ;;
-               ;; TODO: we could add support for supporting
-               ;; '(host [port|(list of ports)]) style host designators.
-               (cond ((atom candidate-host)
-                      (let ((pos (search candidate-host host-name)))
-                        (when pos
-                          (= pos (- (length host-name)
-                                    (length candidate-host))))))))
-             (handled-host-list vhost))))
+    (if exact
+        (find host-name (handled-host-list vhost) :test #'equal)
+        (find-if (lambda (candidate-host)
+                   ;; check to see if the candidate-host is an atom, if so
+                   ;; it's the name of the virtual host and we should handle
+                   ;; requests for this host on any port.
+                   ;;
+                   ;; TODO: we could add support for supporting
+                   ;; '(host [port|(list of ports)]) style host designators.
+                   (cond ((atom candidate-host)
+                          (let ((pos (search candidate-host host-name)))
+                            (when pos
+                              (= pos (- (length host-name)
+                                        (length candidate-host))))))))
+                 (handled-host-list vhost)))))
 
 (defparameter *virtual-host* nil)
 
 (defun dispatch-virtual-host-handlers (request)
   "The dispatch function for the vhost handlers."
   (let ((vhost
-         (loop for vhost in (gethash hunchentoot::*server*
-                                     *server-vhost-list-hash-table*)
-            do (when (virtual-host-handles vhost request)
-                 (return vhost)))))
+         (or (loop for vhost in (gethash hunchentoot::*server*
+                                         *server-vhost-list-hash-table*)
+                do (when (virtual-host-handles vhost request :exact t)
+                     (return vhost)))
+             (loop for vhost in (gethash hunchentoot::*server*
+                                         *server-vhost-list-hash-table*)
+                do (when (virtual-host-handles vhost request)
+                     (return vhost))))))
     (when vhost
       (loop for dispatch-fn in (dispatch-table vhost)
          for action = (let ((*virtual-host* vhost))
