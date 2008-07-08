@@ -44,7 +44,7 @@
   host of the request matches one of the names in this list.")
    (dispatch-table :accessor dispatch-table
                    :initarg :dispatch-table
-                   :initform (list #'dispatch-easy-virtual-handlers)
+                   :initform '(dispatch-easy-virtual-handlers)
                    :documentation "A list of dispatch functions to be
   called for this virtual host.")
    (easy-handler-alist :accessor easy-handler-alist
