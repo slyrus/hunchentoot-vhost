@@ -178,11 +178,11 @@ the description and lambda-list arguments."
     (declare (ignore name))
     (hunchentoot::with-unique-names (fn)
       `(let ((,fn (lambda (&key ,@(loop for part in lambda-list
-                                    collect
-                                    (hunchentoot::make-defun-parameter part
-                                                                       default-parameter-type
-                                                                       default-request-type)))
-                   ,@body)))
+                                     collect
+                                       (hunchentoot::make-defun-parameter part
+                                                                          default-parameter-type
+                                                                          default-request-type)))
+                    ,@body)))
          ,@(when uri
                  (list
                   (hunchentoot::with-rebinding (uri)
