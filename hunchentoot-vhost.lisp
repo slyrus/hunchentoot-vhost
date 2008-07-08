@@ -43,21 +43,21 @@
   for which this virtual host handles the requests if a suffix of the
   host of the request matches one of the names in this list.")
    (dispatch-table :accessor dispatch-table
-               :initarg :dispatch-table
-               :initform (list #'dispatch-easy-virtual-handlers)
-               :documentation "A list of dispatch functions to be
+                   :initarg :dispatch-table
+                   :initform '(dispatch-easy-virtual-handlers)
+                   :documentation "A list of dispatch functions to be
   called for this virtual host.")
    (easy-handler-alist :accessor easy-handler-alist
-               :initarg :easy-handler-alist
-               :initform nil
-               :documentation "A list of virtual-easy-handler
+                       :initarg :easy-handler-alist
+                       :initform nil
+                       :documentation "A list of virtual-easy-handler
   functions to be called for this virtual host.")
    (server :accessor server
-               :initarg :server
-               :initform nil
-               :documentation "The hunchentoot::server for which this
-               virtual-host should be used. If nil, use this virtual
-               host for all servers."))
+           :initarg :server
+           :initform nil
+           :documentation "The hunchentoot::server for which this
+           virtual-host should be used. If nil, use this virtual host
+           for all servers."))
   (:documentation "An object of this class contains information about
   a virtual host to be handled by the hunchentoot-vhost machinery."))
 
@@ -178,11 +178,11 @@ the description and lambda-list arguments."
     (declare (ignore name))
     (hunchentoot::with-unique-names (fn)
       `(let ((,fn (lambda (&key ,@(loop for part in lambda-list
-                                    collect
-                                    (hunchentoot::make-defun-parameter part
-                                                                       default-parameter-type
-                                                                       default-request-type)))
-                   ,@body)))
+                                     collect
+                                       (hunchentoot::make-defun-parameter part
+                                                                          default-parameter-type
+                                                                          default-request-type)))
+                    ,@body)))
          ,@(when uri
                  (list
                   (hunchentoot::with-rebinding (uri)
