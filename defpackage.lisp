@@ -31,7 +31,7 @@
 (in-package #:cl-user)
 
 (defpackage #:hunchentoot-vhost
-  (:use #:cl)
+  (:use #:cl #:hunchentoot)
   (:export #:virtual-host
 
            #:make-virtual-host

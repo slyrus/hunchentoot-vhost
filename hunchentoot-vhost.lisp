@@ -34,25 +34,25 @@
 (in-package #:hunchentoot-vhost)
 
 (defclass virtual-host ()
-  ((name :accessor name
+  ((name :accessor virtual-host-name
          :initarg :name
          :documentation "The name of the virtual host")
-   (handled-host-list :accessor handled-host-list
+   (handled-host-list :accessor virtual-host-handled-host-list
                       :initarg :handled-host-list
                       :documentation "A list of the hostnames which
   for which this virtual host handles the requests if a suffix of the
   host of the request matches one of the names in this list.")
-   (dispatch-table :accessor dispatch-table
+   (dispatch-table :accessor virtual-host-dispatch-table
                    :initarg :dispatch-table
                    :initform '(dispatch-easy-virtual-handlers)
                    :documentation "A list of dispatch functions to be
   called for this virtual host.")
-   (easy-handler-alist :accessor easy-handler-alist
+   (easy-handler-alist :accessor virtual-host-easy-handler-alist
                        :initarg :easy-handler-alist
                        :initform nil
                        :documentation "A list of virtual-easy-handler
   functions to be called for this virtual host.")
-   (server :accessor server
+   (server :accessor virtual-host-server
            :initarg :server
            :initform nil
            :documentation "The hunchentoot::server for which this
@@ -92,10 +92,10 @@ value, rather than either host or host:port if the port is specified."
   to add the hunchentoot-vhost to the given server.")
 
 (defun add-virtual-host (vhost server)
-  (pushnew #'dispatch-virtual-host-handlers hunchentoot::*dispatch-table*)
+  (pushnew 'dispatch-virtual-host-handlers hunchentoot::*dispatch-table*)
   (setf (gethash server *server-vhost-list-hash-table*)
-        (delete (name vhost) (gethash server *server-vhost-list-hash-table*)
-                :key #'name
+        (delete (virtual-host-name vhost) (gethash server *server-vhost-list-hash-table*)
+                :key #'virtual-host-name
                 :test #'equal))
   (push vhost (gethash server *server-vhost-list-hash-table*)))
 
@@ -122,7 +122,7 @@ suffix is host-name if it exists, otherwise returns NIL."
       (host-name-and-port request)
     (declare (ignore host-port))
     (if exact
-        (find host-name (handled-host-list vhost) :test #'equal)
+        (find host-name (virtual-host-handled-host-list vhost) :test #'equal)
         (find-if (lambda (candidate-host)
                    ;; check to see if the candidate-host is an atom, if so
                    ;; it's the name of the virtual host and we should handle
@@ -135,31 +135,33 @@ suffix is host-name if it exists, otherwise returns NIL."
                             (when pos
                               (= pos (- (length host-name)
                                         (length candidate-host))))))))
-                 (handled-host-list vhost)))))
+                 (virtual-host-handled-host-list vhost)))))
 
 (defparameter *virtual-host* nil)
 
 (defun dispatch-virtual-host-handlers (request)
   "The dispatch function for the vhost handlers."
-  (let ((vhost
-         (or (loop for vhost in (gethash hunchentoot::*server*
-                                         *server-vhost-list-hash-table*)
-                do (when (virtual-host-handles vhost request :exact t)
-                     (return vhost)))
-             (loop for vhost in (gethash hunchentoot::*server*
-                                         *server-vhost-list-hash-table*)
-                do (when (virtual-host-handles vhost request)
-                     (return vhost))))))
-    (when vhost
-      (loop for dispatch-fn in (dispatch-table vhost)
-         for action = (let ((*virtual-host* vhost))
-                        (funcall dispatch-fn request))
-         when action return action))))
+  (flet ((dispatch (vhost)
+           (loop for dispatch-fn in (virtual-host-dispatch-table vhost)
+              for action = (let ((*virtual-host* vhost))
+                             (funcall dispatch-fn request))
+              when action return action)))
+    (loop for vhost in (gethash hunchentoot::*server*
+                                *server-vhost-list-hash-table*)
+       do
+         (when (virtual-host-handles vhost request :exact t)
+            (let ((action (dispatch vhost)))
+              (when action (return-from dispatch-virtual-host-handlers action)))))
+    (loop for vhost in (gethash hunchentoot::*server*
+                                *server-vhost-list-hash-table*)
+       do (when (virtual-host-handles vhost request)
+            (let ((action (dispatch vhost)))
+              (when action (return-from dispatch-virtual-host-handlers action)))))))
 
 (defun dispatch-easy-virtual-handlers (request)
   "This is a dispatcher which returns the appropriate handler
 defined with DEFINE-EASY-VIRTUAL-HANDLER, if there is one."
-  (loop for (uri server-names easy-handler) in (easy-handler-alist *virtual-host*)
+  (loop for (uri server-names easy-handler) in (virtual-host-easy-handler-alist *virtual-host*)
      when (and (or (eq server-names t)
                    (find (hunchentoot::server-name hunchentoot::*server*) server-names :test #'eq))
                (cond ((stringp uri)
@@ -171,7 +173,9 @@ defined with DEFINE-EASY-VIRTUAL-HANDLER, if there is one."
   "Defines an easy-virtual-handler for use with a given
 virtual-host. See hunchentoot:define-easy-handler for documentation of
 the description and lambda-list arguments."
-  (destructuring-bind (name &key uri (server-names t)
+  (destructuring-bind (name
+                       &key uri
+                       (server-names t)
                        (default-parameter-type ''string)
                        (default-request-type :both))
       description
@@ -179,17 +183,20 @@ the description and lambda-list arguments."
     (hunchentoot::with-unique-names (fn)
       `(let ((,fn (lambda (&key ,@(loop for part in lambda-list
                                      collect
-                                       (hunchentoot::make-defun-parameter part
-                                                                          default-parameter-type
-                                                                          default-request-type)))
+                                     (hunchentoot::make-defun-parameter
+                                      part
+                                      default-parameter-type
+                                      default-request-type)))
                     ,@body)))
          ,@(when uri
                  (list
                   (hunchentoot::with-rebinding (uri)
                     `(progn
-                       (setf (easy-handler-alist ,virtual-host)
+                       (setf (virtual-host-easy-handler-alist ,virtual-host)
                              (delete-if (lambda (list)
                                           (equal ,uri (first list)))
-                                        (easy-handler-alist ,virtual-host)))
-                       (push (list ,uri ,server-names ,fn) (easy-handler-alist ,virtual-host))))))))))
+                                        (virtual-host-easy-handler-alist ,virtual-host)))
+                       (push (list ,uri ,server-names ,fn)
+                             (virtual-host-easy-handler-alist ,virtual-host))))))))))
+
 
