@@ -146,13 +146,13 @@ suffix is host-name if it exists, otherwise returns NIL."
               for action = (let ((*virtual-host* vhost))
                              (funcall dispatch-fn request))
               when action return action)))
-    (loop for vhost in (gethash hunchentoot::*server*
+    (loop for vhost in (gethash hunchentoot::*acceptor*
                                 *server-vhost-list-hash-table*)
        do
          (when (virtual-host-handles vhost request :exact t)
             (let ((action (dispatch vhost)))
               (when action (return-from dispatch-virtual-host-handlers action)))))
-    (loop for vhost in (gethash hunchentoot::*server*
+    (loop for vhost in (gethash hunchentoot::*acceptor*
                                 *server-vhost-list-hash-table*)
        do (when (virtual-host-handles vhost request)
             (let ((action (dispatch vhost)))
@@ -163,7 +163,7 @@ suffix is host-name if it exists, otherwise returns NIL."
 defined with DEFINE-EASY-VIRTUAL-HANDLER, if there is one."
   (loop for (uri server-names easy-handler) in (virtual-host-easy-handler-alist *virtual-host*)
      when (and (or (eq server-names t)
-                   (find (hunchentoot::server-name hunchentoot::*server*) server-names :test #'eq))
+                   (find (hunchentoot:acceptor-name hunchentoot::*acceptor*) server-names :test #'eq))
                (cond ((stringp uri)
                       (string= (hunchentoot::script-name request) uri))
                      (t (funcall uri request))))
