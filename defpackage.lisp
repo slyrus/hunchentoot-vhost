@@ -38,5 +38,7 @@
            #:add-virtual-host
 
            #:define-easy-virtual-handler
-           #:dispatch-virtual-host-handlers))
+           #:dispatch-virtual-host-handlers
+
+	   #:virtual-host-dispatch-table))
 
